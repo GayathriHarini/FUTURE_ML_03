@@ -1,0 +1,84 @@
+import pandas as pd
+import numpy as np
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+job_description = """
+We are looking for a Data Scientist with strong knowledge in Python, 
+Machine Learning, Deep Learning, NLP, SQL, and Data Visualization.
+Experience with Pandas, NumPy, Scikit-learn and TensorFlow is required.
+"""
+
+data = {
+    "candidate_name": [
+        "Ananya",
+        "Rahul",
+        "Priya",
+        "Karthik",
+        "Sneha"
+    ],
+    
+    "resume_text": [
+        "Experienced in Python, Machine Learning, NLP and Deep Learning. Worked with TensorFlow and Pandas.",
+        
+        "Skilled in Java, SQL and Web Development. Basic knowledge of Python.",
+        
+        "Data Analyst with experience in SQL, Data Visualization, Pandas and NumPy.",
+        
+        "Machine Learning Engineer with strong skills in Python, Scikit-learn, Deep Learning and TensorFlow.",
+        
+        "Frontend developer experienced in HTML, CSS, JavaScript and React."
+    ]
+}
+
+df = pd.DataFrame(data)
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    return text
+
+df["clean_resume"] = df["resume_text"].apply(clean_text)
+clean_job = clean_text(job_description)
+
+skill_list = [
+    "python", "machine learning", "deep learning", "nlp",
+    "sql", "data visualization", "pandas", "numpy",
+    "scikit-learn", "tensorflow", "java", "html",
+    "css", "javascript", "react"
+]
+
+def extract_skills(text):
+    skills_found = []
+    for skill in skill_list:
+        if skill in text:
+            skills_found.append(skill)
+    return skills_found
+
+df["skills"] = df["clean_resume"].apply(extract_skills)
+
+job_skills = extract_skills(clean_job)
+print("Required Job Skills:", job_skills)
+
+vectorizer = TfidfVectorizer()
+
+all_documents = df["clean_resume"].tolist() + [clean_job]
+
+tfidf_matrix = vectorizer.fit_transform(all_documents)
+
+resume_vectors = tfidf_matrix[:-1]
+job_vector = tfidf_matrix[-1]
+
+similarity_scores = cosine_similarity(resume_vectors, job_vector)
+
+df["similarity_score"] = similarity_scores
+
+def skill_gap(candidate_skills, job_skills):
+    return list(set(job_skills) - set(candidate_skills))
+
+df["missing_skills"] = df["skills"].apply(lambda x: skill_gap(x, job_skills))
+
+df_ranked = df.sort_values(by="similarity_score", ascending=False)
+
+df_ranked[["candidate_name", "similarity_score", "skills", "missing_skills"]]
